@@ -107,10 +107,18 @@ namespace polytools
         void load(std::istream &istream);
 
         // ----------- OPERATIONS -------------
+        bool is_zero() const;
+        bool is_equal(const SealPoly &other) const;
+
         // inplace ops -> result in first operand
+        void multiply_scalar_inplace(uint64_t scalar);
+        void add_scalar_inplace(uint64_t scalar);
         void add_inplace(const SealPoly &other);
+        void add_inplace(const seal::Ciphertext &other, size_t index);
         void subtract_inplace(const SealPoly &other);
+        void subtract_inplace(const seal::Ciphertext &other, size_t index);
         void multiply_inplace(const SealPoly &other);
+        void multiply_inplace(const seal::Ciphertext &other, size_t index);
         void intt_inplace(const seal::util::NTTTables *small_ntt_tables);
         void ntt_inplace(const seal::util::NTTTables *small_ntt_tables);
         bool invert_inplace();

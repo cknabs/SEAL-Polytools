@@ -20,7 +20,7 @@ target_sources(polytools PRIVATE
             ${CMAKE_CURRENT_LIST_DIR}/src/poly_arith.cpp
   )
 
-include_directories(${CMAKE_CURRENT_LIST_DIR}/include)
+target_include_directories(polytools PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include)
 
 target_link_libraries(polytools PUBLIC nlohmann_json::nlohmann_json)
 

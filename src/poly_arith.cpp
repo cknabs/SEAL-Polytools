@@ -115,6 +115,50 @@ void SealPoly::set_coeff(seal::SEALContext &context, std::complex<double> &val, 
 }
 
 // -------------------------------- OPERATIONS ---------------------------------
+bool SealPoly::is_zero() const
+{
+    auto mm = data.begin();
+    size_t size = data.size();
+    // Check if first item is zero, then use memcmp() to check remaining size-1 items
+    return (*mm == 0) && !memcmp(mm, mm + 1, size - 1);
+}
+
+bool SealPoly::is_equal(const SealPoly &other) const
+{
+    if (data.size() != other.data.size())
+    {
+        return false;
+    }
+    return !memcmp(data.begin(), other.data.begin(), data.size());
+}
+
+void SealPoly::multiply_scalar_inplace(uint64_t scalar)
+{
+    if (scalar == 1)
+    {
+        return;
+    }
+    // No need for NTT check, since NTT is a no-op for the constant polynomial scalar.
+    for (size_t j = 0; j < coeff_modulus.size(); j++)
+    {
+        seal::util::multiply_poly_scalar_coeffmod(
+            &data[j * coeff_count], coeff_count, scalar, coeff_modulus[j], &data[j * coeff_count]);
+    }
+}
+
+void SealPoly::add_scalar_inplace(uint64_t scalar)
+{
+    if (scalar == 0)
+    {
+        return;
+    }
+    for (size_t j = 0; j < coeff_modulus.size(); j++)
+    {
+        seal::util::add_poly_scalar_coeffmod(
+            &data[j * coeff_count], coeff_count, scalar, coeff_modulus[j], &data[j * coeff_count]);
+    }
+}
+
 void SealPoly::add_inplace(const SealPoly &other)
 {
     assert(is_ntt == other.is_ntt);
@@ -123,6 +167,19 @@ void SealPoly::add_inplace(const SealPoly &other)
     {
         seal::util::add_poly_coeffmod(
             &data[j * coeff_count], &other.data[j * coeff_count], coeff_count, coeff_modulus[j],
+            &data[j * coeff_count]); // TODO: Check if this is safe (used to be result + ..)
+    }
+}
+
+void SealPoly::add_inplace(const seal::Ciphertext &other, size_t index)
+{
+    assert(is_ntt == other.is_ntt_form());
+    auto other_data = other.data(index);
+#pragma omp parallel for
+    for (size_t j = 0; j < coeff_modulus.size(); j++)
+    {
+        seal::util::add_poly_coeffmod(
+            &data[j * coeff_count], &other_data[j * coeff_count], coeff_count, coeff_modulus[j],
             &data[j * coeff_count]); // TODO: Check if this is safe (used to be result + ..)
     }
 }
@@ -139,6 +196,19 @@ void SealPoly::subtract_inplace(const SealPoly &other)
     }
 }
 
+void SealPoly::subtract_inplace(const seal::Ciphertext &other, size_t index)
+{
+    assert(is_ntt == other.is_ntt_form());
+    auto other_data = other.data(index);
+#pragma omp parallel for
+    for (size_t j = 0; j < coeff_modulus.size(); j++)
+    {
+        seal::util::sub_poly_coeffmod(
+            &data[j * coeff_count], &other_data[j * coeff_count], coeff_count, coeff_modulus[j],
+            &data[j * coeff_count]); // TODO: Check if this is safe (used to be result + ..)
+    }
+}
+
 void SealPoly::multiply_inplace(const SealPoly &other)
 {
     assert(is_ntt);
@@ -149,6 +219,20 @@ void SealPoly::multiply_inplace(const SealPoly &other)
     {
         seal::util::dyadic_product_coeffmod(
             &data[j * coeff_count], &(*o_p).data[j * coeff_count], coeff_count, coeff_modulus[j],
+            &data[j * coeff_count]); // TODO: Check if this is safe (used to be result + ..)
+    }
+}
+
+void SealPoly::multiply_inplace(const seal::Ciphertext &other, size_t index)
+{
+    assert(is_ntt);
+    assert(other.is_ntt_form());
+    auto other_data = other.data(index);
+#pragma omp parallel for
+    for (size_t j = 0; j < coeff_modulus.size(); j++)
+    {
+        seal::util::dyadic_product_coeffmod(
+            &data[j * coeff_count], &other_data[j * coeff_count], coeff_count, coeff_modulus[j],
             &data[j * coeff_count]); // TODO: Check if this is safe (used to be result + ..)
     }
 }
