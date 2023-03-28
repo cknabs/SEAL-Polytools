@@ -33,7 +33,7 @@ SealPoly::SealPoly(seal::SEALContext &context, const seal::Ciphertext &ref)
     is_ntt = true;
 }
 
-SealPoly::SealPoly(seal::SEALContext &context, seal::Ciphertext &ctxt, size_t index)
+SealPoly::SealPoly(seal::SEALContext &context, const seal::Ciphertext &ctxt, size_t index)
     : parms_id(ctxt.parms_id()), mempool(seal::MemoryManager::GetPool()), coeff_count(ctxt.poly_modulus_degree()),
       coeff_modulus(context.get_context_data(parms_id)->parms().coeff_modulus())
 {
@@ -46,9 +46,8 @@ SealPoly::SealPoly(seal::SEALContext &context, seal::Ciphertext &ctxt, size_t in
     is_ntt = ctxt.is_ntt_form();
 }
 
-SealPoly::SealPoly(seal::SEALContext &context, seal::Plaintext &ptxt, const seal::parms_id_type *parms_id_ptr)
+SealPoly::SealPoly(seal::SEALContext &context, const seal::Plaintext &ptxt, const seal::parms_id_type *parms_id_ptr)
     : parms_id(ptxt.parms_id()), mempool(seal::MemoryManager::GetPool())
-
 {
     // If the polynomial is in non-ntt form (e.g., created from hex string), it'll have parms_id_zero
     if (ptxt.parms_id() == seal::parms_id_zero)
@@ -94,6 +93,36 @@ SealPoly::SealPoly(seal::SEALContext &context, seal::Plaintext &ptxt, const seal
         for (size_t i = 0; i < coeff_count * coeff_modulus.size(); ++i)
         {
             data[i] = ptxt.data()[i];
+        }
+    }
+}
+
+SealPoly::SealPoly(
+    seal::SEALContext &context, const std::vector<uint64_t> &coeffs, const seal::parms_id_type *parms_id_ptr)
+    : parms_id(*parms_id_ptr), mempool(seal::MemoryManager::GetPool())
+{
+    auto parms = context.get_context_data(parms_id)->parms();
+    coeff_modulus = parms.coeff_modulus();
+    coeff_count = parms.poly_modulus_degree();
+
+    // If the polynomial is in non-ntt form (e.g., created from hex string), it'll have parms_id_zero
+    if (parms_id == seal::parms_id_zero)
+    {
+        is_ntt = false;
+    }
+    else
+    {
+        is_ntt = true;
+    }
+
+    // Initialize data array to the desired size (writes zeros)
+    data.resize(coeff_count * coeff_modulus.size(), true);
+
+    for (size_t i = 0; i < coeff_modulus.size(); i++)
+    {
+        for (size_t j = 0; j < coeff_count; j++)
+        {
+            data[i * coeff_count + j] = coeffs[i * coeff_count + j];
         }
     }
 }
@@ -209,6 +238,19 @@ void SealPoly::subtract_inplace(const seal::Ciphertext &other, size_t index)
     }
 }
 
+void SealPoly::subtract_scalar_inplace(uint64_t scalar)
+{
+    if (scalar == 0)
+    {
+        return;
+    }
+    for (size_t j = 0; j < coeff_modulus.size(); j++)
+    {
+        seal::util::sub_poly_scalar_coeffmod(
+            &data[j * coeff_count], coeff_count, scalar, coeff_modulus[j], &data[j * coeff_count]);
+    }
+}
+
 void SealPoly::multiply_inplace(const SealPoly &other)
 {
     assert(is_ntt);
@@ -295,6 +337,14 @@ bool SealPoly::invert_inplace()
     delete[] has_inv;
 
     return true;
+}
+
+void SealPoly::negate_inplace()
+{
+    for (size_t j = 0; j < coeff_modulus.size(); j++)
+    {
+        seal::util::negate_poly_coeffmod(&data[j * coeff_count], coeff_count, coeff_modulus[j], &data[j * coeff_count]);
+    }
 }
 
 // =============================================================================

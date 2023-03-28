@@ -53,12 +53,18 @@ namespace polytools
         /// \param context seal::SEALContext object, used to access the context
         /// \param ctxt  Ciphertext from which the polynomial should be copied
         /// \param index Index (starting at 0) of the polynomial to be copied
-        SealPoly(seal::SEALContext &context, seal::Ciphertext &ctxt, size_t index);
+        SealPoly(seal::SEALContext &context, const seal::Ciphertext &ctxt, size_t index);
 
         /// Creates a copy of polynomial in the Plaintext
         /// \param context seal::SEALContext object, used to access the context
         /// \param ptxt  Plaintext from which the polynomial should be copied
-        SealPoly(seal::SEALContext &context, seal::Plaintext &ptxt, const seal::parms_id_type *parms_id = nullptr);
+        SealPoly(
+            seal::SEALContext &context, const seal::Plaintext &ptxt, const seal::parms_id_type *parms_id = nullptr);
+
+        /// Creates a copy of polynomial with coefficients given by coeffs
+        /// \param context seal::SEALContext object, used to access the context
+        /// \param coeffs  Coefficients of the polynomial
+        SealPoly(seal::SEALContext &context, const std::vector<uint64_t> &coeffs, const seal::parms_id_type *parms_id);
 
         /// Export polynomial to a vector of complex values
         /// \return vector of the (complex) coefficients of the polynomial
@@ -68,6 +74,32 @@ namespace polytools
         /// \param i index of the coefficient
         /// \return the i-th coefficient
         std::complex<double> get_coeff(seal::SEALContext &context, size_t i);
+
+        /// get individual coefficient in RNS representation (expressed as a vector)
+        /// \param i index of the coefficient
+        /// \return the i-th coefficient
+        std::vector<uint64_t> get_coefficient_rns(size_t i)
+        {
+            std::vector<uint64_t> res(get_coeff_modulus_count());
+            for (size_t j = 0; j < get_coeff_modulus_count(); j++)
+            {
+                res[j] = data[j * get_coeff_count() + i];
+            }
+            return res;
+        }
+
+        /// get i-th RNS limb for all coefficients
+        /// \param i index of the limb
+        /// \return the i-th limb
+        std::vector<uint64_t> get_limb(size_t i)
+        {
+            std::vector<uint64_t> res(get_coeff_count());
+            for (size_t j = 0; j < get_coeff_count(); j++)
+            {
+                res[j] = data[i * get_coeff_count() + j];
+            }
+            return res;
+        }
 
         /// set individual coefficient
         /// \param i index of the coefficient
@@ -83,6 +115,11 @@ namespace polytools
         [[nodiscard]] size_t get_coeff_modulus_count() const
         {
             return this->coeff_modulus.size();
+        }
+
+        [[nodiscard]] std::vector<seal::Modulus> get_coeff_modulus() const
+        {
+            return this->coeff_modulus;
         }
 
         /// Parameter id associated with this SealPoly
@@ -117,10 +154,12 @@ namespace polytools
         void add_inplace(const seal::Ciphertext &other, size_t index);
         void subtract_inplace(const SealPoly &other);
         void subtract_inplace(const seal::Ciphertext &other, size_t index);
+        void subtract_scalar_inplace(uint64_t scalar);
         void multiply_inplace(const SealPoly &other);
         void multiply_inplace(const seal::Ciphertext &other, size_t index);
         void intt_inplace(const seal::util::NTTTables *small_ntt_tables);
         void ntt_inplace(const seal::util::NTTTables *small_ntt_tables);
+        void negate_inplace();
         bool invert_inplace();
 
         friend seal::Ciphertext poly_to_ctxt(seal::SEALContext &context, std::vector<SealPoly> polys);
