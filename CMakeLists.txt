@@ -13,7 +13,7 @@ FetchContent_MakeAvailable(json)
 #######################
 #  Polytools Library  #
 #######################
-find_package(SEAL 4.0 REQUIRED)
+# For ringSNARK, SEAL is built along with SEAL-Polytools, but not installed # find_package(SEAL 4.0 REQUIRED)
 
 add_library(polytools)
 target_sources(polytools PRIVATE
